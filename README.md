@@ -36,3 +36,37 @@ python3 nf2tikz.py "x0 x1 x4^-1 x2^-1" --name "g=" --glue --labels "a,b,c,d,e,f,
 ```
 
 `esempio_con_etichette.pdf` shows a sample output.
+
+## nf2knot
+
+Takes the normal form of an element of F (generators `x`) or of the Brown–Thompson group
+F_3 (generators `y`) and draws, in TikZ, the link produced by Jones' construction
+(see V. Aiello, *An introduction to Thompson knot theory and to Jones subgroups*,
+JKTR 34 (2025), Sections 2, 4, 5):
+
+* an element of F is sent to F_3 by Jones' map ι (x_n ↦ y_{2n});
+* the two ternary trees are glued at the leaves and the roots are joined by an edge
+  around the left side;
+* every 4-valent vertex becomes a crossing, with the strand joining the left and
+  right children over the one joining the parent and the middle child.
+
+With `--oriented` the element must belong to the oriented subgroup (vec F or vec F_3),
+i.e. its Tait graph must be 2-colourable; the link is then oriented as the boundary of
+the checkerboard surface (leftmost region coloured +, + regions oriented counterclockwise).
+
+```bash
+python3 nf2knot.py "x0 x2^2 x5 x6 x7^-1 x6^-1 x4^-1" --standalone > g.tex   # the figure-eight knot
+python3 nf2knot.py "x0 x1" --oriented --standalone > h.tex
+python3 nf2knot.py "y1^2" --oriented --jones
+```
+
+| Option | Effect |
+|---|---|
+| `--oriented` | oriented link (error if the element is not in vec F / vec F_3) |
+| `--standalone` | outputs a compilable LaTeX document |
+| `--scale S` | scale of the picture (default 0.6) |
+| `--pd` | prints the PD code instead of the picture |
+| `--jones` | prints the Jones polynomial instead of the picture |
+
+Without `--oriented` the components are oriented arbitrarily for the PD code and the
+Jones polynomial (for knots this makes no difference).
