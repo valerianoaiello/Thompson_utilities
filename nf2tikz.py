@@ -1,35 +1,35 @@
 #!/usr/bin/env python3
 """
-nf2tikz.py - Dalla forma normale di un elemento del gruppo F di Thompson
-al suo tree diagram ridotto, disegnato in TikZ.
+nf2tikz.py - From the normal form of an element of Thompson's group F
+to its reduced tree diagram, drawn in TikZ.
 
-Convenzioni (Belk, "Thompson's Group F", sez. 1.2-1.3):
-  * albero del dominio in alto, albero del codominio in basso, foglie allineate;
-  * [T] = elemento positivo con albero superiore T e albero inferiore una right vine;
-  * [T] x_n = [T ^ n]  (Prop. 1.3.3): x_n attacca un caret alla foglia n di T;
+Conventions (Belk, "Thompson's Group F", Sections 1.2-1.3):
+  * domain tree on top, range tree on the bottom, leaves aligned;
+  * [T] = positive element with top tree T and a right vine as bottom tree;
+  * [T] x_n = [T ^ n]  (Prop. 1.3.3): x_n attaches a caret to leaf n of T;
   * f = p q^{-1}  =>  tree diagram  [T_p ; T_q].
 
-Uso:
+Usage:
   python3 nf2tikz.py "x0 x1 x6 x4^-1 x2^-1"
   python3 nf2tikz.py "x_0^2 x_1 x_3^{-1} x_0^{-1}" --scale 0.5 --standalone
-  python3 nf2tikz.py "x0 x1" --labels            (foglie numerate 0,1,...)
-  python3 nf2tikz.py "x0" --labels "a,b,c"       (etichette personalizzate)
-  python3 nf2tikz.py "x0 x1" --caret-labels      (caret numerati; anche con lista "a,b,c")
-  python3 nf2tikz.py "x0 x1" --name "g="         (nome a sinistra del diagramma)
-  python3 nf2tikz.py "x0 x1" --glue              (foglie dei due alberi incollate)
-  (tutte le etichette sono opzionali e si possono combinare)
-  (scrivi sempre la parola PRIMA delle opzioni)
+  python3 nf2tikz.py "x0 x1" --labels            (leaves numbered 0,1,...)
+  python3 nf2tikz.py "x0" --labels "a,b,c"       (custom labels)
+  python3 nf2tikz.py "x0 x1" --caret-labels      (numbered carets; also with a list "a,b,c")
+  python3 nf2tikz.py "x0 x1" --name "g="         (name to the left of the diagram)
+  python3 nf2tikz.py "x0 x1" --glue              (leaves of the two trees glued together)
+  (all labels are optional and can be combined)
+  (always write the word BEFORE the options)
 """
 import re
 import sys
 import argparse
 
-LEAF = None  # una foglia; un nodo interno e' una coppia (sinistro, destro)
+LEAF = None  # a leaf; an internal node is a pair (left, right)
 
 
-# ---------- parsing della parola ----------
+# ---------- parsing the word ----------
 def parse_word(s):
-    """Accetta 'x0 x1^2 x4^-1', 'x_0x_1^{2}x_4^{-1}', ecc. Restituisce [(indice, esponente)]."""
+    """Accepts 'x0 x1^2 x4^-1', 'x_0x_1^{2}x_4^{-1}', etc. Returns [(index, exponent)]."""
     s = s.replace(" ", "").replace("{", "").replace("}", "").replace("_", "")
     tokens = re.findall(r"x(\d+)(?:\^(-?\d+))?", s)
     if not tokens or "".join(f"x{i}" + (f"^{e}" if e else "") for i, e in tokens) != s:
@@ -38,7 +38,7 @@ def parse_word(s):
 
 
 def split_pq(word):
-    """Separa la parola in parte positiva p e parte negativa q^{-1}; restituisce le liste di generatori di p e q."""
+    """Splits the word into a positive part p and a negative part q^{-1}; returns the generator lists of p and q."""
     p, q, seen_neg = [], [], False
     for n, e in word:
         if e > 0:
@@ -52,7 +52,7 @@ def split_pq(word):
     return p, q
 
 
-# ---------- alberi binari ----------
+# ---------- binary trees ----------
 def width(t):
     return 0 if t is LEAF else width(t[0]) + width(t[1]) + 1
 
@@ -65,28 +65,28 @@ def right_vine(w):
 
 
 def attach(t, n):
-    """Attacca un caret alla foglia n (numerate da 0 a sinistra)."""
+    """Attaches a caret to leaf n (leaves numbered from 0 on the left)."""
     if t is LEAF:
         assert n == 0
         return (LEAF, LEAF)
-    wl = width(t[0]) + 1  # numero di foglie del sottoalbero sinistro
+    wl = width(t[0]) + 1  # number of leaves of the left subtree
     if n < wl:
         return (attach(t[0], n), t[1])
     return (t[0], attach(t[1], n - wl))
 
 
 def positive_tree(gens):
-    """Albero T tale che [T] = x_{g1} x_{g2} ... (Prop. 1.3.3, espandendo lo stalk destro se serve)."""
+    """Tree T such that [T] = x_{g1} x_{g2} ... (Prop. 1.3.3, extending the right stalk when needed)."""
     t = LEAF
     for n in gens:
-        while width(t) <= n:  # serve n < w: aggiungi un caret all'ultima foglia (non cambia l'elemento)
+        while width(t) <= n:  # need n < w: add a caret to the last leaf (does not change the element)
             t = attach(t, width(t))
         t = attach(t, n)
     return t
 
 
 def leaf_carets(t, offset=0, out=None):
-    """Indici i dei caret le cui due foglie sono i, i+1."""
+    """Indices i of the carets whose two children are the leaves i, i+1."""
     if out is None:
         out = set()
     if t is LEAF:
@@ -99,7 +99,7 @@ def leaf_carets(t, offset=0, out=None):
 
 
 def remove_caret(t, i, offset=0):
-    """Sostituisce con una foglia il caret con foglie i, i+1."""
+    """Replaces the caret with leaves i, i+1 by a single leaf."""
     if t[0] is LEAF and t[1] is LEAF and offset == i:
         return LEAF
     wl = width(t[0]) + 1
@@ -115,7 +115,7 @@ def tree_diagram(word):
         T = attach(T, width(T))
     while width(U) < width(T):
         U = attach(U, width(U))
-    # riduzione: elimina coppie di caret opposti (Def. 1.2.3)
+    # reduction: remove pairs of opposing carets (Def. 1.2.3)
     while True:
         common = leaf_carets(T) & leaf_carets(U)
         if not common:
@@ -126,7 +126,7 @@ def tree_diagram(word):
 
 # ---------- TikZ ----------
 def edges(t, sign, gap, offset=0, out=None):
-    """Restituisce (x_nodo, y_nodo, [segmenti]). Tutti i lati sono a 45 gradi come nella tesi."""
+    """Returns (x_node, y_node, [segments]). All edges are at 45 degrees."""
     if out is None:
         out = []
     if t is LEAF:
@@ -142,7 +142,7 @@ def edges(t, sign, gap, offset=0, out=None):
 
 
 def caret_positions(t, sign, gap, offset=0, out=None):
-    """Posizioni dei caret, indicizzati come le foglie: il caret k separa le foglie k e k+1."""
+    """Caret positions, indexed like the leaves: caret k separates leaves k and k+1."""
     if out is None:
         out = {}
     if t is LEAF:
@@ -170,26 +170,26 @@ def to_tikz(T, U, scale=0.4, gap=0.5, label=None, leaf_labels=None,
     lines = [f"\\begin{{tikzpicture}}[scale={scale}, line cap=round]"]
     if label:
         lines.append(f"  % {label}")
-    for nome, tree, sign in (("dominio (alto)", T, 1), ("codominio (basso)", U, -1)):
-        lines.append(f"  % albero del {nome}")
+    for title, tree, sign in (("domain tree (top)", T, 1), ("range tree (bottom)", U, -1)):
+        lines.append(f"  % {title}")
         _, _, segs = edges(tree, sign, gap)
         for (a, b) in segs:
             lines.append(f"  \\draw ({fmt(a[0])},{fmt(a[1])}) -- ({fmt(b[0])},{fmt(b[1])});")
     if not glue:
-        lines.append("  % foglie")
+        lines.append("  % leaves")
         for i in range(n + 1):
             lines.append(f"  \\fill ({i},{fmt(gap)}) circle (2.5pt) ({i},{fmt(-gap)}) circle (2.5pt);")
     if leaf_labels is not None:
         if glue:
-            lines.append("  % etichette delle foglie (sui vertici incollati)")
+            lines.append("  % leaf labels (on the glued vertices)")
             style = "font=\\scriptsize, fill=white, inner sep=1pt"
         else:
-            lines.append("  % etichette delle foglie (tra le due file)")
+            lines.append("  % leaf labels (between the two rows)")
             style = "font=\\scriptsize"
         for i, lab in enumerate(leaf_labels):
             lines.append(f"  \\node[{style}] at ({i},0) {{${lab}$}};")
     if caret_labels is not None:
-        lines.append("  % etichette dei caret")
+        lines.append("  % caret labels")
         for tree, sign, anchor in ((T, 1, "south"), (U, -1, "north")):
             pos = caret_positions(tree, sign, gap)
             for k, lab in enumerate(caret_labels):
@@ -197,14 +197,14 @@ def to_tikz(T, U, scale=0.4, gap=0.5, label=None, leaf_labels=None,
                 lines.append(f"  \\node[font=\\scriptsize, anchor={anchor}, inner sep=2pt] "
                              f"at ({fmt(x)},{fmt(y)}) {{${lab}$}};")
     if name:
-        lines.append("  % nome del tree diagram")
+        lines.append("  % name of the tree diagram")
         lines.append(f"  \\node[anchor=east] at (-0.7,0) {{${name}$}};")
     lines.append("\\end{tikzpicture}")
     return "\n".join(lines)
 
 
 def parse_labels(value, count):
-    """'' -> 0,1,...,count-1; altrimenti lista separata da virgole."""
+    """'' -> 0,1,...,count-1; otherwise a comma-separated list."""
     if value == "":
         return [str(i) for i in range(count)]
     return [s.strip() for s in value.split(",")]
@@ -233,7 +233,7 @@ def main():
     leaf_labels = None if a.labels is None else parse_labels(a.labels, n + 1)
     caret_labels = None if a.caret_labels is None else parse_labels(a.caret_labels, n)
     gap = a.gap
-    if leaf_labels is not None and gap == 0.5:  # spazio di default: allarga per far stare le etichette
+    if leaf_labels is not None and gap == 0.5:  # default gap: widen it to make room for the labels
         gap = 0.8
     tikz = to_tikz(T, U, a.scale, gap, label=a.word, leaf_labels=leaf_labels,
                    caret_labels=caret_labels, name=a.name, glue=a.glue)
