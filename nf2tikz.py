@@ -33,7 +33,7 @@ def parse_word(s):
     s = s.replace(" ", "").replace("{", "").replace("}", "").replace("_", "")
     tokens = re.findall(r"x(\d+)(?:\^(-?\d+))?", s)
     if not tokens or "".join(f"x{i}" + (f"^{e}" if e else "") for i, e in tokens) != s:
-        raise ValueError(f"Parola non riconosciuta: {s!r}")
+        raise ValueError(f"Word not recognized: {s!r}")
     return [(int(i), int(e) if e else 1) for i, e in tokens]
 
 
@@ -43,7 +43,7 @@ def split_pq(word):
     for n, e in word:
         if e > 0:
             if seen_neg:
-                raise ValueError("La parola deve essere della forma (positivi)(negativi), come la forma normale.")
+                raise ValueError("The word must have the form (positive part)(negative part), like the normal form.")
             p += [n] * e
         elif e < 0:
             seen_neg = True
@@ -162,9 +162,9 @@ def to_tikz(T, U, scale=0.4, gap=0.5, label=None, leaf_labels=None,
             caret_labels=None, name=None, glue=False):
     n = width(T)
     if leaf_labels is not None and len(leaf_labels) != n + 1:
-        raise ValueError(f"Servono {n + 1} etichette (una per foglia), ne hai date {len(leaf_labels)}.")
+        raise ValueError(f"{n + 1} labels are needed (one per leaf), {len(leaf_labels)} were given.")
     if caret_labels is not None and len(caret_labels) != n:
-        raise ValueError(f"Servono {n} etichette (una per caret), ne hai date {len(caret_labels)}.")
+        raise ValueError(f"{n} labels are needed (one per caret), {len(caret_labels)} were given.")
     if glue:
         gap = 0
     lines = [f"\\begin{{tikzpicture}}[scale={scale}, line cap=round]"]
@@ -212,20 +212,20 @@ def parse_labels(value, count):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("word", help='es. "x0 x1 x6 x4^-1 x2^-1"')
+    ap.add_argument("word", help='normal form, e.g. "x0 x1 x6 x4^-1 x2^-1"')
     ap.add_argument("--scale", type=float, default=0.4)
-    ap.add_argument("--gap", type=float, default=0.5, help="meta' della distanza verticale tra le due file di foglie")
-    ap.add_argument("--standalone", action="store_true", help="produce un documento LaTeX compilabile")
-    ap.add_argument("--labels", nargs="?", const="", default=None, metavar="LISTA",
-                    help="etichette delle foglie: senza valore numera 0,1,...,w; "
-                         "oppure una lista separata da virgole, es. \"a,b,c,d\"")
-    ap.add_argument("--caret-labels", nargs="?", const="", default=None, metavar="LISTA",
-                    help="etichette dei caret (in entrambi gli alberi): senza valore numera 0,1,...; "
-                         "il caret k e' quello tra le foglie k e k+1")
-    ap.add_argument("--name", metavar="TESTO",
-                    help="nome a sinistra del diagramma, in modo matematico, es. \"g=\"")
+    ap.add_argument("--gap", type=float, default=0.5, help="half the vertical distance between the two rows of leaves")
+    ap.add_argument("--standalone", action="store_true", help="output a compilable LaTeX document")
+    ap.add_argument("--labels", nargs="?", const="", default=None, metavar="LIST",
+                    help="leaf labels: without a value the leaves are numbered 0,1,...,w; "
+                         "otherwise a comma-separated list, e.g. \"a,b,c,d\"")
+    ap.add_argument("--caret-labels", nargs="?", const="", default=None, metavar="LIST",
+                    help="caret labels (in both trees): without a value the carets are numbered 0,1,...; "
+                         "caret k is the one between leaves k and k+1")
+    ap.add_argument("--name", metavar="TEXT",
+                    help="name to the left of the diagram, in math mode, e.g. \"g=\"")
     ap.add_argument("--glue", action="store_true",
-                    help="incolla le foglie dei due alberi (figura chiusa, senza spazio tra le file)")
+                    help="glue the leaves of the two trees (closed picture, no space between the rows)")
     a = ap.parse_args()
 
     T, U = tree_diagram(parse_word(a.word))
@@ -247,4 +247,4 @@ if __name__ == "__main__":
     try:
         main()
     except ValueError as e:
-        sys.exit(f"Errore: {e}")
+        sys.exit(f"Error: {e}")

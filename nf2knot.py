@@ -41,10 +41,10 @@ def parse_word(s):
     s = s.replace(" ", "").replace("{", "").replace("}", "").replace("_", "")
     tokens = re.findall(r"([xy])(\d+)(?:\^(-?\d+))?", s)
     if not tokens or "".join(f"{c}{i}" + (f"^{e}" if e else "") for c, i, e in tokens) != s:
-        raise ValueError(f"Parola non riconosciuta: {s!r}")
+        raise ValueError(f"Word not recognized: {s!r}")
     letters = {c for c, _, _ in tokens}
     if len(letters) > 1:
-        raise ValueError("Usa solo generatori x (gruppo F) oppure solo y (gruppo F_3).")
+        raise ValueError("Use only generators x (group F) or only generators y (group F_3).")
     return letters.pop(), [(int(i), int(e) if e else 1) for _, i, e in tokens]
 
 
@@ -54,7 +54,7 @@ def split_pq(word):
     for n, e in word:
         if e > 0:
             if seen_neg:
-                raise ValueError("La parola deve essere della forma (positivi)(negativi), come la forma normale.")
+                raise ValueError("The word must have the form (positive part)(negative part), like the normal form.")
             p += [n] * e
         elif e < 0:
             seen_neg = True
@@ -290,7 +290,7 @@ def traverse(D, arcs, oriented):
             h = e1 if tail == e0 else e0
             head[idx] = h
             if oriented and arcs[idx]["forward"] != (h == e1):
-                raise AssertionError("orientazione non coerente")
+                raise AssertionError("incoherent orientation")
             nxt = (h[0], PARTNER[h[1]])
             idx, tail = by_end[nxt], nxt
     return label, head, comps
@@ -474,11 +474,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("word", help='normal form, e.g. "x0 x1 x4^-1 x2^-1" (F) or "y0 y2 y1^-1" (F_3)')
     ap.add_argument("--oriented", action="store_true",
-                    help="link orientato: l'elemento deve stare in vec F (o vec F_3)")
+                    help="oriented link: the element must belong to vec F (or vec F_3)")
     ap.add_argument("--scale", type=float, default=0.6)
-    ap.add_argument("--standalone", action="store_true", help="produce un documento LaTeX compilabile")
-    ap.add_argument("--pd", action="store_true", help="stampa il PD code invece del disegno")
-    ap.add_argument("--jones", action="store_true", help="stampa il polinomio di Jones invece del disegno")
+    ap.add_argument("--standalone", action="store_true", help="output a compilable LaTeX document")
+    ap.add_argument("--pd", action="store_true", help="print the PD code instead of the picture")
+    ap.add_argument("--jones", action="store_true", help="print the Jones polynomial instead of the picture")
     a = ap.parse_args()
 
     letter, word = parse_word(a.word)
@@ -493,7 +493,7 @@ def main():
         col = colouring(D)
         if col is None:
             group = "vec F" if letter == "x" else "vec F_3"
-            raise ValueError(f"l'elemento non sta in {group}: il grafo di Tait non e' 2-colorabile.")
+            raise ValueError(f"the element is not in {group}: its Tait graph is not 2-colourable.")
         orient(D, arcs, col)
     label, head, comps = traverse(D, arcs, a.oriented) if arcs else ({}, {}, 1)
     X, signs = pd_code(D, arcs, label, head) if arcs else ([], [])
@@ -518,4 +518,4 @@ if __name__ == "__main__":
     try:
         main()
     except ValueError as e:
-        sys.exit(f"Errore: {e}")
+        sys.exit(f"Error: {e}")

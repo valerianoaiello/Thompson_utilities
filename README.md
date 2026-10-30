@@ -53,7 +53,7 @@ All labels are optional and can be combined, for example:
 python3 nf2tikz.py "x0 x1 x4^-1 x2^-1" --name "g=" --glue --labels "a,b,c,d,e,f,g" --standalone
 ```
 
-`esempio_con_etichette.pdf` shows a sample output.
+`example_with_labels.pdf` shows a sample output.
 
 ## nf2knot
 
@@ -87,6 +87,10 @@ python3 nf2knot.py "y1^2" --oriented --jones
 
 Without `--oriented` the components are oriented arbitrarily for the PD code and the
 Jones polynomial (for knots this makes no difference).
+
+## License
+
+MIT License, see [LICENSE](LICENSE).
 
 ## References
 
