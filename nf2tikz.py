@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
 nf2tikz.py - From the normal form of an element of Thompson's group F
-to its reduced tree diagram, drawn in TikZ.
+(generators x) or of the Brown-Thompson group F_3 (generators y) to its
+reduced tree diagram, drawn in TikZ.
 
 Conventions (Belk, "Thompson's Group F", Sections 1.2-1.3):
   * domain tree on top, range tree on the bottom, leaves aligned;
   * [T] = positive element with top tree T and a right vine as bottom tree;
   * [T] x_n = [T ^ n]  (Prop. 1.3.3): x_n attaches a caret to leaf n of T;
   * f = p q^{-1}  =>  tree diagram  [T_p ; T_q].
+The same conventions are used for F_3, with ternary carets: y_n attaches a
+ternary caret to leaf n, as in nf2knot.py (so x_n -> y_{2n} under Jones' map iota).
 
 Usage:
   python3 nf2tikz.py "x0 x1 x6 x4^-1 x2^-1"
@@ -17,6 +20,7 @@ Usage:
   python3 nf2tikz.py "x0 x1" --caret-labels      (numbered carets; also with a list "a,b,c")
   python3 nf2tikz.py "x0 x1" --name "g="         (name to the left of the diagram)
   python3 nf2tikz.py "x0 x1" --glue              (leaves of the two trees glued together)
+  python3 nf2tikz.py "y0 y3 y1^-1" --labels      (element of F_3)
   (all labels are optional and can be combined)
   (always write the word BEFORE the options)
 """
@@ -29,12 +33,15 @@ LEAF = None  # a leaf; an internal node is a pair (left, right)
 
 # ---------- parsing the word ----------
 def parse_word(s):
-    """Accepts 'x0 x1^2 x4^-1', 'x_0x_1^{2}x_4^{-1}', etc. Returns [(index, exponent)]."""
+    """Accepts 'x0 x1^2 x4^-1' or 'y_0y_1^{2}y_4^{-1}'. Returns (k, [(index, exponent)]), k = 2 for F, 3 for F_3."""
     s = s.replace(" ", "").replace("{", "").replace("}", "").replace("_", "")
-    tokens = re.findall(r"x(\d+)(?:\^(-?\d+))?", s)
-    if not tokens or "".join(f"x{i}" + (f"^{e}" if e else "") for i, e in tokens) != s:
+    tokens = re.findall(r"([xy])(\d+)(?:\^(-?\d+))?", s)
+    if not tokens or "".join(f"{c}{i}" + (f"^{e}" if e else "") for c, i, e in tokens) != s:
         raise ValueError(f"Word not recognized: {s!r}")
-    return [(int(i), int(e) if e else 1) for i, e in tokens]
+    letters = {c for c, _, _ in tokens}
+    if len(letters) > 1:
+        raise ValueError("Use only generators x (group F) or only generators y (group F_3).")
+    return (2 if letters.pop() == "x" else 3), [(int(i), int(e) if e else 1) for _, i, e in tokens]
 
 
 def split_pq(word):
@@ -52,69 +59,72 @@ def split_pq(word):
     return p, q
 
 
-# ---------- binary trees ----------
+# ---------- k-ary trees (k = 2: F, k = 3: F_3); an internal node is the tuple of its children ----------
 def width(t):
-    return 0 if t is LEAF else width(t[0]) + width(t[1]) + 1
+    """Number of leaves minus 1."""
+    return 0 if t is LEAF else sum(width(c) + 1 for c in t) - 1
 
 
-def right_vine(w):
-    t = LEAF
-    for _ in range(w):
-        t = (LEAF, t)
-    return t
-
-
-def attach(t, n):
-    """Attaches a caret to leaf n (leaves numbered from 0 on the left)."""
+def attach(t, n, k):
+    """Attaches a k-ary caret to leaf n (leaves numbered from 0 on the left)."""
     if t is LEAF:
         assert n == 0
-        return (LEAF, LEAF)
-    wl = width(t[0]) + 1  # number of leaves of the left subtree
-    if n < wl:
-        return (attach(t[0], n), t[1])
-    return (t[0], attach(t[1], n - wl))
+        return (LEAF,) * k
+    out = []
+    for c in t:
+        w = width(c) + 1
+        if 0 <= n < w:
+            c = attach(c, n, k)
+        n -= w
+        out.append(c)
+    return tuple(out)
 
 
-def positive_tree(gens):
-    """Tree T such that [T] = x_{g1} x_{g2} ... (Prop. 1.3.3, extending the right stalk when needed)."""
+def positive_tree(gens, k):
+    """Tree T such that [T] = g1 g2 ... (Prop. 1.3.3, extending the right stalk when needed)."""
     t = LEAF
     for n in gens:
         while width(t) <= n:  # need n < w: add a caret to the last leaf (does not change the element)
-            t = attach(t, width(t))
-        t = attach(t, n)
+            t = attach(t, width(t), k)
+        t = attach(t, n, k)
     return t
 
 
 def leaf_carets(t, offset=0, out=None):
-    """Indices i of the carets whose two children are the leaves i, i+1."""
+    """First leaves i of the carets whose children are all leaves."""
     if out is None:
         out = set()
     if t is LEAF:
         return out
-    if t[0] is LEAF and t[1] is LEAF:
+    if all(c is LEAF for c in t):
         out.add(offset)
-    leaf_carets(t[0], offset, out)
-    leaf_carets(t[1], offset + width(t[0]) + 1, out)
+    for c in t:
+        leaf_carets(c, offset, out)
+        offset += width(c) + 1
     return out
 
 
 def remove_caret(t, i, offset=0):
-    """Replaces the caret with leaves i, i+1 by a single leaf."""
-    if t[0] is LEAF and t[1] is LEAF and offset == i:
+    """Replaces the caret whose children are the leaves i, i+1, ... by a single leaf."""
+    if all(c is LEAF for c in t) and offset == i:
         return LEAF
-    wl = width(t[0]) + 1
-    if i < offset + wl:
-        return (remove_caret(t[0], i, offset), t[1])
-    return (t[0], remove_caret(t[1], i, offset + wl))
+    out = []
+    for c in t:
+        w = width(c) + 1
+        if c is not LEAF and offset <= i < offset + w:
+            c = remove_caret(c, i, offset)
+        offset += w
+        out.append(c)
+    return tuple(out)
 
 
-def tree_diagram(word):
+def tree_diagram(word, k=2):
     p, q = split_pq(word)
-    T, U = positive_tree(p), positive_tree(q)
+    T, U = positive_tree(p, k), positive_tree(q, k)
     while width(T) < width(U):
-        T = attach(T, width(T))
+        T = attach(T, width(T), k)
     while width(U) < width(T):
-        U = attach(U, width(U))
+        U = attach(U, width(U), k)
     # reduction: remove pairs of opposing carets (Def. 1.2.3)
     while True:
         common = leaf_carets(T) & leaf_carets(U)
@@ -126,18 +136,19 @@ def tree_diagram(word):
 
 # ---------- TikZ ----------
 def edges(t, sign, gap, offset=0, out=None):
-    """Returns (x_node, y_node, [segments]). All edges are at 45 degrees."""
+    """Returns (x_node, y_node, [segments]). In binary trees all edges are at 45 degrees."""
     if out is None:
         out = []
     if t is LEAF:
         return offset, sign * gap, out
-    wl = width(t[0]) + 1
-    xl, yl, _ = edges(t[0], sign, gap, offset, out)
-    xr, yr, _ = edges(t[1], sign, gap, offset + wl, out)
     lo, hi = offset, offset + width(t)
     x, y = (lo + hi) / 2, sign * (gap + (hi - lo) / 2)
-    out.append(((x, y), (xl, yl)))
-    out.append(((x, y), (xr, yr)))
+    ends = []
+    for c in t:
+        xc, yc, _ = edges(c, sign, gap, offset, out)
+        ends.append((xc, yc))
+        offset += width(c) + 1
+    out += [((x, y), e) for e in ends]
     return x, y, out
 
 
@@ -212,7 +223,7 @@ def parse_labels(value, count):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("word", help='normal form, e.g. "x0 x1 x6 x4^-1 x2^-1"')
+    ap.add_argument("word", help='normal form, e.g. "x0 x1 x6 x4^-1 x2^-1" (F) or "y0 y3 y1^-1" (F_3)')
     ap.add_argument("--scale", type=float, default=0.4)
     ap.add_argument("--gap", type=float, default=0.5, help="half the vertical distance between the two rows of leaves")
     ap.add_argument("--standalone", action="store_true", help="output a compilable LaTeX document")
@@ -228,7 +239,10 @@ def main():
                     help="glue the leaves of the two trees (closed picture, no space between the rows)")
     a = ap.parse_args()
 
-    T, U = tree_diagram(parse_word(a.word))
+    k, word = parse_word(a.word)
+    if k == 3 and a.caret_labels is not None:
+        raise ValueError("--caret-labels is available only for elements of F.")
+    T, U = tree_diagram(word, k)
     n = width(T)
     leaf_labels = None if a.labels is None else parse_labels(a.labels, n + 1)
     caret_labels = None if a.caret_labels is None else parse_labels(a.caret_labels, n)
